@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  master:
+    image: fraktsedel/spark:3.0.2
+    ports:
+      - 8787:8080
+      - 7077:7077
+    command: bin/spark-class org.apache.spark.deploy.master.Master
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+    volumes:
+      - /storage/spark:/spark
+    networks:
+      - net
+
+  worker:
+    image: fraktsedel/spark:3.0.2
+    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://master:7077
+    deploy:
+      mode: replicated
+      replicas: 4
+      placement:
+        max_replicas_per_node: 1
+      resources:
+        reservations:
+          cpus: '2'
+          memory: 2048M
+    volumes:
+      - /storage/spark:/spark
+    networks:
+      - net
+
+  jupyterlab:
+    image: fraktsedel/jupyter-pyspark:3.0.2
+    command: jupyter lab --ip=0.0.0.0 --allow-root --NotebookApp.token='' --NotebookApp.password='' --notebook-dir='/spark'
+    ports:
+      - 8788:8888
+    volumes:
+      - /storage/spark:/spark
+    networks:
+      - net
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        max_replicas_per_node: 1
+
+networks:
+  net:
+    driver: overlay
+    attachable: true
